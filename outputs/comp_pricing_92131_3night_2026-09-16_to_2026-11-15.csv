@@ -1,0 +1,29 @@
+date,n_listings,92131_nightly_price,high,median,low,lowest_listing_url,lowest_listing_name
+2026-09-28,39,159.67,482.33,247.0,149.0,https://airbnb.com/rooms/1760644423616519186,Home in San Diego
+2026-09-29,39,170.33,489.33,261.33,154.0,https://airbnb.com/rooms/1664946053477956403,Home in San Diego
+2026-09-30,39,192.67,596.67,324.0,197.33,https://airbnb.com/rooms/19477518,Guest suite in San Diego
+2026-10-01,39,216.0,523.33,383.33,183.33,https://airbnb.com/rooms/1264577274221291675,Guest suite in Poway
+2026-10-02,39,238.33,543.33,358.0,183.33,https://airbnb.com/rooms/1264577274221291675,Guest suite in Poway
+2026-10-03,39,219.67,489.67,319.0,198.0,https://airbnb.com/rooms/1133487,Apartment in San Diego
+2026-10-04,39,201.0,507.33,262.33,157.33,https://airbnb.com/rooms/19477518,Guest suite in San Diego
+2026-10-05,39,182.33,419.33,261.0,145.67,https://airbnb.com/rooms/19477518,Guest suite in San Diego
+2026-10-06,39,173.0,458.33,296.0,172.33,https://airbnb.com/rooms/19477518,Guest suite in San Diego
+2026-10-12,39,171.67,425.0,263.0,158.67,https://airbnb.com/rooms/26471784,Home in San Diego
+2026-10-13,39,171.67,458.33,278.0,166.0,https://airbnb.com/rooms/1139971392439725253,Home in San Diego
+2026-10-19,39,177.0,381.67,269.0,137.67,https://airbnb.com/rooms/1734533283295666758,Home in San Diego
+2026-10-20,39,189.0,471.33,278.33,155.0,https://airbnb.com/rooms/19477518,Guest suite in San Diego
+2026-10-21,39,177.0,536.33,301.0,192.33,https://airbnb.com/rooms/19477518,Guest suite in San Diego
+2026-11-02,39,198.0,475.33,238.67,132.33,https://airbnb.com/rooms/1734533283295666758,Home in San Diego
+2026-11-03,39,211.33,483.0,255.67,139.67,https://airbnb.com/rooms/1734533283295666758,Home in San Diego
+2026-11-04,39,217.67,425.0,283.33,161.67,https://airbnb.com/rooms/1734533283295666758,Home in San Diego
+2026-11-05,39,224.0,538.67,319.67,229.67,https://airbnb.com/rooms/681947950402313342,Home in San Diego
+2026-11-06,39,230.33,538.67,324.0,232.67,https://airbnb.com/rooms/1155823351476316018,Guesthouse in San Diego
+2026-11-07,39,225.0,424.33,282.67,195.67,https://airbnb.com/rooms/1371180435797698999,Guesthouse in San Diego
+2026-11-08,39,219.67,424.33,261.67,170.0,https://airbnb.com/rooms/1744266210287826325,Home in Lakeside
+2026-11-09,39,214.33,457.0,256.33,166.0,https://airbnb.com/rooms/1734533283295666758,Home in San Diego
+2026-11-10,39,214.33,473.33,282.33,166.0,https://airbnb.com/rooms/1139971392439725253,Home in San Diego
+2026-11-11,39,219.67,587.33,333.0,183.0,https://airbnb.com/rooms/1695189657927065447,Home in Santee
+2026-11-12,39,225.0,486.0,341.67,197.0,https://airbnb.com/rooms/1747279497684823244,Apartment in San Diego
+2026-11-13,39,230.33,478.67,320.0,197.0,https://airbnb.com/rooms/1747279497684823244,Apartment in San Diego
+2026-11-14,39,225.0,613.67,297.0,203.67,https://airbnb.com/rooms/950893181432035685,Guest suite in San Diego
+2026-11-15,39,219.67,434.0,258.33,159.0,https://airbnb.com/rooms/33472784,Condo in San Diego

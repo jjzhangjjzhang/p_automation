@@ -1,0 +1,44 @@
+listings:
+  - id: "1366459487284926886"
+    name: "Cascade"
+  - id: "1571837966127216610"
+    name: "Dennison"
+
+comps:
+  # Not currently used for pricing — Airbnb stopped returning nightly prices
+  # on per-listing endpoints, so comp pricing now comes from re-running the
+  # search below per date instead (see agents/competitor_agent.py). Kept here
+  # for reference / in case per-listing pricing becomes available again.
+  seed:
+    - url: "https://www.airbnb.com/rooms/1645836922268604771"
+    - url: "https://www.airbnb.com/rooms/1345387465767431705"
+    - url: "https://www.airbnb.com/rooms/1158181617364477034"
+    - url: "https://www.airbnb.com/rooms/49619600"
+    - url: "https://www.airbnb.com/rooms/769149238108725096"
+    - url: "https://www.airbnb.com/rooms/27057911"
+  auto_discover:
+    enabled: true
+    location: "San Diego, CA 92122"
+    bedrooms_min: 4
+    bathrooms_min: 2
+    adults: 2
+    children: 2
+    min_nights: 2 # San Diego STR regulations require a 2-night minimum stay
+    property_type: "Entire home"
+    max_results: 50
+    max_distance_miles: 10
+  price_lookup_days: 120 # fetch real comp pricing this many days out, limited to your own unbooked nights to bound request volume
+
+guardrails:
+  price_floor: 150
+  price_ceiling: 600
+  max_daily_change_pct: 15
+  min_price_gap_between_listings: 5 # never let A and B land on the same price
+  pricing_window_days: 120
+
+pace:
+  lookback_days_for_history: 365
+
+scrape:
+  cache_ttl_hours: 20
+  request_delay_seconds: [2, 5] # randomized delay between requests, be polite
