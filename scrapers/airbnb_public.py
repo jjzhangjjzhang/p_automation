@@ -22,13 +22,20 @@ than fetching each comp listing's own calendar.
 """
 
 import base64
+import json
 import re
+import ssl
 from datetime import date
 
 import httpx
+import truststore
 
 BASE_URL = "https://www.airbnb.com"
-STAYS_SEARCH_HASH = "f41294a37a23d962e6d9b53cac636ad3a3afb012750d726ed89013fb9ce211b2"
+STAYS_SEARCH_HASH = "a607fc0d39cdab40dece08de7ba484a17ec5ebb81b355bc5c9816f8d7fb0cf23"
+# Anonymous per-listing availability calendar (no prices, just open/blocked
+# days + min nights). Rotates like STAYS_SEARCH_HASH — refresh via
+# scripts/capture_hashes.py (look for PdpAvailabilityCalendarV2Query).
+AVAILABILITY_CALENDAR_HASH = "4d4724885b57d91f65be3c50c8b792b92a0dc723a871affb6ee358a0caf6d694"
 
 # Fields the persisted StaysSearch query validates as required, mirrored from a
 # real browser request — omitting any of these (or the staysMapSearchRequestV2
@@ -55,7 +62,10 @@ _DEFAULT_HEADERS = {
 
 
 def get_client() -> httpx.Client:
-    return httpx.Client(headers=_DEFAULT_HEADERS, timeout=20.0, follow_redirects=True)
+    # Use the OS trust store so corporate TLS-inspecting proxies (self-signed
+    # chain) don't cause CERTIFICATE_VERIFY_FAILED.
+    ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    return httpx.Client(headers=_DEFAULT_HEADERS, timeout=20.0, follow_redirects=True, verify=ssl_ctx)
 
 
 def _get_api_key(client: httpx.Client) -> str:
@@ -159,6 +169,66 @@ def search_listings(
             }
         )
     return results
+
+
+def get_availability(client: httpx.Client, room_id: str, months: int = 5) -> list[dict]:
+    """Fetches a listing's public availability calendar, no login needed.
+
+    Returns [{date, booked, min_nights}] starting from the current month.
+    `booked` is True for any night guests can't book (reserved OR host-blocked
+    — the public calendar can't tell the two apart). Prices aren't exposed
+    here, so price is None.
+    """
+    api_key = _get_api_key(client)
+    global_id = base64.b64encode(f"DemandStayListing:{room_id}".encode()).decode()
+    today = date.today()
+    variables = {
+        "listingId": global_id,
+        "input": {
+            "count": months + 1,
+            "month": today.month,
+            "year": today.year,
+            "returnPropertyLevelCalendarIfApplicable": False,
+        },
+    }
+    extensions = {"persistedQuery": {"version": 1, "sha256Hash": AVAILABILITY_CALENDAR_HASH}}
+    resp = client.get(
+        f"{BASE_URL}/api/v3/PdpAvailabilityCalendarV2Query/{AVAILABILITY_CALENDAR_HASH}",
+        params={
+            "operationName": "PdpAvailabilityCalendarV2Query",
+            "locale": "en",
+            "currency": "USD",
+            "variables": json.dumps(variables, separators=(",", ":")),
+            "extensions": json.dumps(extensions, separators=(",", ":")),
+        },
+        headers={
+            "X-Airbnb-Api-Key": api_key,
+            "X-Airbnb-Graphql-Platform": "web",
+            "X-Airbnb-Graphql-Platform-Client": "minimalist-niobe",
+            "X-Csrf-Without-Token": "1",
+        },
+    )
+    resp.raise_for_status()
+    try:
+        calendar_months = resp.json()["data"]["node"]["pdpAvailabilityCalendar"]["calendarMonths"]
+    except (KeyError, TypeError) as e:
+        raise RuntimeError(
+            f"Unexpected availability calendar response for room {room_id} — the "
+            "persisted-query hash may be stale (see AVAILABILITY_CALENDAR_HASH)."
+        ) from e
+
+    days = []
+    for month in calendar_months:
+        for day in month.get("days", []):
+            if day.get("calendarDate") and day["calendarDate"] >= today.isoformat():
+                days.append(
+                    {
+                        "date": day["calendarDate"],
+                        "booked": not day.get("available"),
+                        "min_nights": day.get("minNights"),
+                    }
+                )
+    return days
 
 
 def get_room_location(client: httpx.Client, room_id: str) -> tuple[float, float] | None:

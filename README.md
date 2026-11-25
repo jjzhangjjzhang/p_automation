@@ -7,6 +7,17 @@ Claude to pick a final recommended price per listing per date with a
 plain-language rationale. Everything upstream of the final decision step
 is deterministic; prices are never pushed to Airbnb automatically.
 
+## Quick reference: get the two pricing worksheet CSVs
+
+```bash
+source .venv/bin/activate
+python pipeline.py
+python scripts/build_pricing_worksheets.py
+```
+
+Writes `outputs/pricing_worksheet_<date>_cascade.csv` and
+`outputs/pricing_worksheet_<date>_dennison.csv`.
+
 ## Pipeline
 
 ```

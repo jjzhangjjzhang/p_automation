@@ -88,16 +88,25 @@ def main():
     decisions = decision_agent.run(signals_by_listing, guardrails)
 
     run_at = datetime.now().isoformat()
+    signals_written_for = set()
     for d in decisions:
+        listing_id = d["listing_id"]
+        # Signals are per (run, listing), not per date -- write the blob once
+        # per listing per run instead of duplicating it on every date's row.
+        if listing_id in signals_written_for:
+            signals_json = None
+        else:
+            signals_json = json.dumps(signals_by_listing.get(listing_id, {}))
+            signals_written_for.add(listing_id)
         db.insert_recommendation(
             conn,
             run_at=run_at,
-            listing_id=d["listing_id"],
+            listing_id=listing_id,
             date=d["date"],
             recommended_price=d["recommended_price"],
             prior_price=None,
             rationale=d["rationale"],
-            signals_json=json.dumps(signals_by_listing.get(d["listing_id"], {})),
+            signals_json=signals_json,
         )
     conn.commit()
     conn.close()

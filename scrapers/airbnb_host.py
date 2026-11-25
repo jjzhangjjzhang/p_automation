@@ -25,6 +25,18 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://www.airbnb.com"
 AUTH_STATE_PATH = Path(__file__).parent.parent / "data" / ".airbnb_auth_state.json"
 
+
+def _dismiss_cookie_banner(page) -> None:
+    """Removes the cookie-consent banner from the page if present, rather
+    than trying to click an "Accept"-ish button -- its exact label isn't
+    verified against the live site, whereas just deleting the element can't
+    get that wrong, and it stops the banner from intercepting clicks on the
+    real controls underneath it (seen blocking the Cancel/Save buttons)."""
+    page.evaluate(
+        "() => { const el = document.querySelector('[data-testid=\"main-cookies-banner-container\"]');"
+        " if (el) el.remove(); }"
+    )
+
 _CALENDAR_COLLECT_JS = """() => {
     const cells = Array.from(document.querySelectorAll('button[data-date]'));
     return cells.map(b => {
@@ -58,7 +70,7 @@ class HostSession:
 
     def __enter__(self):
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=self.headless)
+        self._browser = self._playwright.chromium.launch(headless=self.headless, channel="chrome")
         storage_state = str(AUTH_STATE_PATH) if AUTH_STATE_PATH.exists() else None
         self._context = self._browser.new_context(storage_state=storage_state)
         return self
@@ -176,45 +188,57 @@ class HostSession:
         except Exception:
             pass
         page.wait_for_timeout(2000)
+        _dismiss_cookie_banner(page)
 
-        day_btn = page.query_selector(f'button[data-date="{date_str}"]')
+        # Locators (not query_selector's static ElementHandles) so every
+        # action re-queries the live DOM -- the calendar is a virtualized,
+        # frequently-re-rendering list, and ElementHandle snapshots taken
+        # before a re-render go stale and fail with "not attached to DOM".
+        day_locator = page.locator(f'button[data-date="{date_str}"]').first
         for _ in range(60):  # safety cap; each iteration scrolls a few days into view
-            if day_btn is not None:
+            if day_locator.count() > 0:
                 break
             page.evaluate(
                 "() => { const el = document.querySelector('[data-testid=\"virtuoso-scroller\"]');"
                 " if (el) el.scrollTop += 500; }"
             )
             page.wait_for_timeout(600)
-            day_btn = page.query_selector(f'button[data-date="{date_str}"]')
-        if day_btn is None:
+        if day_locator.count() == 0:
             page.close()
             raise ValueError(f"Date {date_str} not found on calendar (out of loaded range?)")
-        day_btn.scroll_into_view_if_needed()
-        day_btn.click()
-        page.wait_for_timeout(1000)
+        day_locator.scroll_into_view_if_needed()
+        day_locator.click()
 
-        price_box = page.query_selector('[data-testid="pna-price"]')
-        if price_box is None:
+        price_box = page.locator('[data-testid="pna-price"]').first
+        try:
+            price_box.wait_for(state="visible", timeout=8000)
+        except Exception:
+            pass
+        if price_box.count() == 0:
             page.close()
             raise RuntimeError(
                 f"Price edit panel didn't open for {date_str} — likely booked/blocked, can't set a price."
             )
         price_box.click()
-        try:
-            page.wait_for_selector('input[data-testid="PriceInput-nightlyPrice"]', timeout=5000)
-        except Exception:
-            pass
-        price_input = page.query_selector('input[data-testid="PriceInput-nightlyPrice"]')
-        if price_input is None:
+
+        price_input = page.locator('input[data-testid="PriceInput-nightlyPrice"]').first
+        for attempt in range(2):  # the panel's first click sometimes doesn't land while it's still animating in
+            try:
+                price_input.wait_for(state="visible", timeout=8000)
+            except Exception:
+                pass
+            if price_input.count() > 0:
+                break
+            price_box.click()
+        if price_input.count() == 0:
             page.close()
             raise RuntimeError(f"Price input never appeared for {date_str}.")
         previous_price = price_input.get_attribute("value")
 
         price_input.click()
-        price_input.fill("")
-        price_input.type(str(int(round(price))))
+        price_input.fill(str(int(round(price))))
         page.wait_for_timeout(300)
+        _dismiss_cookie_banner(page)  # can reappear and block Cancel/Save
 
         if dry_run:
             page.get_by_role("button", name="Cancel").click()
@@ -286,6 +310,92 @@ class HostSession:
             )
         page.close()
         return results
+
+    def get_all_reservations_detailed(self, max_pages: int = 40) -> list[dict]:
+        """Scrapes every page of /hosting/reservations/all for all listings.
+
+        Unlike get_reservations (first page only, trimmed fields), this walks
+        the pagination and keeps the full detail needed for compliance
+        reporting. Canceled rows are included with their status.
+
+        Returns dicts: {listing_id, listing_title, confirmation_code, guest_name,
+        num_guests, status, checkin, checkout, booked_at, host_payout}.
+        listing_id is None if the row's title matches no listing.
+        """
+        title_to_id = {t: i for i, t in self._get_listing_titles().items()}
+        page = self._context.new_page()
+        page.goto(f"{BASE_URL}/hosting/reservations/all", timeout=30000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass
+        page.wait_for_timeout(1500)
+
+        results: list[dict] = []
+        seen_codes: set[str] = set()
+        for _ in range(max_pages):
+            page_codes = []
+            for row in page.query_selector_all('tr[data-testid="host-reservations-table-row"]'):
+                parsed = _parse_detailed_row(row, title_to_id)
+                if parsed is None:
+                    continue
+                page_codes.append(parsed["confirmation_code"])
+                if parsed["confirmation_code"] not in seen_codes:
+                    seen_codes.add(parsed["confirmation_code"])
+                    results.append(parsed)
+
+            next_btn = page.query_selector('button[aria-label="Next"]')
+            if next_btn is None or next_btn.is_disabled():
+                break
+            first_before = page_codes[0] if page_codes else None
+            next_btn.click()
+            for _ in range(20):  # wait up to ~10s for the table to swap
+                page.wait_for_timeout(500)
+                row = page.query_selector('tr[data-testid="host-reservations-table-row"]')
+                if row is not None:
+                    cells = row.query_selector_all("td")
+                    if len(cells) > 7 and cells[7].inner_text().strip() != first_before:
+                        break
+            else:
+                break  # table never changed; avoid looping forever
+        page.close()
+        return results
+
+
+def _parse_detailed_row(row, title_to_id: dict[str, str]) -> dict | None:
+    cells = row.query_selector_all("td")
+    if len(cells) < 9:
+        return None
+    values = {
+        name: cells[i].inner_text().strip()
+        for i, name in enumerate(_RESERVATION_COLUMNS)
+        if i < len(cells)
+    }
+    code = values.get("confirmation_code")
+    if not code:
+        return None
+    status_el = row.query_selector('span[data-testid="host-reservations-status-color"]')
+    status_key = (status_el.get_attribute("data-status-key") if status_el else "") or ""
+    status = values.get("status", "").split("\n")[0].strip()
+    lines = [ln.strip() for ln in values.get("guests", "").split("\n") if ln.strip()]
+    guest_name = lines[0] if lines else ""
+    party_text = " ".join(lines[1:])
+    # Adults + children (Airbnb's capacity count); infants/pets stay in `party`.
+    num_guests = sum(int(n) for n in re.findall(r"(\d+)\s+(?:adult|child)", party_text))
+    title = values.get("listing", "")
+    return {
+        "listing_id": title_to_id.get(title),
+        "listing_title": title,
+        "confirmation_code": code,
+        "guest_name": guest_name,
+        "num_guests": num_guests,
+        "party": party_text,
+        "status": "Canceled" if "cancel" in status_key.lower() else status,
+        "checkin": _parse_host_date(values.get("checkin")),
+        "checkout": _parse_host_date(values.get("checkout")),
+        "booked_at": _parse_host_date(values.get("booked_at")),
+        "host_payout": _parse_price(values.get("total_payout", "")),
+    }
 
 
 def _parse_price(text: str) -> float | None:

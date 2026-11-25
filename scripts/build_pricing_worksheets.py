@@ -19,6 +19,9 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import yaml
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from storage import db  # noqa: E402
@@ -102,6 +105,36 @@ def write_worksheet(path: Path, rows: list[list]) -> None:
         writer = csv.writer(f)
         writer.writerow(HEADER)
         writer.writerows(rows)
+
+
+HIGHLIGHT_FILLS = {
+    "low": "BDD7EE",      # light blue
+    "current": "FFE699",  # light amber
+}
+
+
+def write_xlsx(path: Path, rows: list[list]) -> None:
+    """Same data as the CSV, with the `low` and `current` columns color-coded
+    (CSV can't carry formatting). The CSV stays the input for
+    apply_prices_from_csv.py.
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.append(HEADER)
+    for row in rows:
+        ws.append(row)
+
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+    for col_name, color in HIGHLIGHT_FILLS.items():
+        col_idx = HEADER.index(col_name) + 1
+        fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+        for r in range(1, ws.max_row + 1):
+            ws.cell(row=r, column=col_idx).fill = fill
+    for idx, name in enumerate(HEADER, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = 40 if name == "lowest_listing_url" else max(10, len(name) + 2)
+    wb.save(path)
 
 
 def main():

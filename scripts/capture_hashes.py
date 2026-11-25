@@ -5,6 +5,7 @@ refresh STAYS_SEARCH_HASH / CALENDAR_HASH in scrapers/airbnb_public.py.
 """
 
 import json
+import re
 import time
 import urllib.parse
 
@@ -13,7 +14,7 @@ from playwright.sync_api import sync_playwright
 
 SEARCH_URL = (
     "https://www.airbnb.com/s/San-Diego--CA-92122/homes"
-    "?checkin=2026-09-20&checkout=2026-09-21&adults=1"
+    "?checkin=2026-12-20&checkout=2026-12-21&adults=1"
 )
 LISTING_URL = "https://www.airbnb.com/rooms/1645836922268604771"
 
@@ -29,7 +30,12 @@ def on_request(request):
         return
     op_name = qs.get("operationName", ["?"])[0]
     sha = None
-    if "extensions" in qs:
+    # StaysSearch (and some others) carry the hash in the URL path:
+    # /api/v3/<Operation>/<hash>
+    path_match = re.search(r"/api/v3/[^/]+/([0-9a-f]{64})", parsed.path)
+    if path_match:
+        sha = path_match.group(1)
+    if sha is None and "extensions" in qs:
         try:
             ext = json.loads(qs["extensions"][0])
             sha = ext.get("persistedQuery", {}).get("sha256Hash")
@@ -63,6 +69,15 @@ with sync_playwright() as p:
     except PlaywrightError as e:
         print(f"(scroll warning: {e})")
     time.sleep(5)
+    # The first page of results is server-rendered; StaysSearch only fires
+    # on a follow-up interaction such as pagination.
+    try:
+        page.mouse.wheel(0, 20000)
+        time.sleep(2)
+        page.click('a[aria-label="Next"]', timeout=5000)
+        time.sleep(5)
+    except PlaywrightError as e:
+        print(f"(could not click next page: {e})")
     safe_goto(page, LISTING_URL, "listing")
 
     # Try to trigger the availability calendar by clicking the date selector.

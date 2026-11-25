@@ -11,7 +11,8 @@ refine once a season of real data has accumulated.
 
 from datetime import date, datetime, timedelta
 
-from scrapers.airbnb_host import HostSession
+from scrapers import airbnb_public
+from scrapers.cache import polite_delay
 from storage import db
 
 
@@ -46,51 +47,48 @@ def run(config: dict, conn) -> dict:
     today = date.today()
 
     pace_by_listing = {}
+    client = airbnb_public.get_client()
 
-    with HostSession(headless=True) as session:
-        session.login()
+    for listing in config["listings"]:
+        listing_id = listing["id"]
 
-        for listing in config["listings"]:
-            listing_id = listing["id"]
+        # Open/booked comes from the public availability calendar (no login).
+        # It has no prices, so carry forward the last known price per date from
+        # earlier host-dashboard scrapes — flagged as potentially stale.
+        known_prices = db.last_known_own_prices(conn, listing_id, today.isoformat())
+        calendar_days = airbnb_public.get_availability(client, listing_id, months=window_days // 30 + 1)
+        for day in calendar_days:
+            db.insert_own_calendar(
+                conn,
+                scraped_at=scraped_at,
+                listing_id=listing_id,
+                date=day["date"],
+                price=known_prices.get(day["date"]),
+                booked=1 if day["booked"] else 0,
+                min_nights=day["min_nights"],
+            )
+        polite_delay(config["scrape"]["request_delay_seconds"])
 
-            calendar_days = session.get_calendar(listing_id, months=window_days // 30 + 1)
-            for day in calendar_days:
-                db.insert_own_calendar(
-                    conn,
-                    scraped_at=scraped_at,
-                    listing_id=listing_id,
-                    date=day["date"],
-                    price=day["price"],
-                    booked=1 if day["booked"] else 0,
-                    min_nights=day["min_nights"],
-                )
+        # Reservation history needs the host dashboard (login), so pace uses
+        # whatever bookings were stored by earlier logged-in runs.
+        past_bookings = conn.execute(
+            "SELECT * FROM bookings WHERE listing_id = ?", (listing_id,)
+        ).fetchall()
+        lead_time_cdf = _historical_lead_time_cdf(past_bookings)
 
-            reservations = session.get_reservations(listing_id)
-            for r in reservations:
-                conn.execute(
-                    """INSERT INTO bookings (listing_id, checkin, checkout, booked_at, nightly_rate, total_price)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (listing_id, r["checkin"], r["checkout"], r["booked_at"], r["nightly_rate"], r["total_price"]),
-                )
+        window_end = today + timedelta(days=window_days)
+        window_calendar = [
+            d for d in calendar_days if d.get("date") and date.fromisoformat(d["date"]) <= window_end
+        ]
+        if window_calendar:
+            actual_booked_fraction = sum(1 for d in window_calendar if d["booked"]) / len(window_calendar)
+            avg_lead_time = window_days // 2
+            expected_booked_fraction = _expected_booked_fraction(lead_time_cdf, avg_lead_time)
+            pace_ratio = (actual_booked_fraction + 1e-6) / (expected_booked_fraction + 1e-6)
+        else:
+            pace_ratio = 1.0
 
-            past_bookings = conn.execute(
-                "SELECT * FROM bookings WHERE listing_id = ?", (listing_id,)
-            ).fetchall()
-            lead_time_cdf = _historical_lead_time_cdf(past_bookings)
-
-            window_end = today + timedelta(days=window_days)
-            window_calendar = [
-                d for d in calendar_days if d.get("date") and date.fromisoformat(d["date"]) <= window_end
-            ]
-            if window_calendar:
-                actual_booked_fraction = sum(1 for d in window_calendar if d["booked"]) / len(window_calendar)
-                avg_lead_time = window_days // 2
-                expected_booked_fraction = _expected_booked_fraction(lead_time_cdf, avg_lead_time)
-                pace_ratio = (actual_booked_fraction + 1e-6) / (expected_booked_fraction + 1e-6)
-            else:
-                pace_ratio = 1.0
-
-            pace_by_listing[listing_id] = pace_ratio
+        pace_by_listing[listing_id] = pace_ratio
 
     conn.commit()
     return pace_by_listing

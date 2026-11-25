@@ -14,7 +14,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from scrapers.airbnb_host import AUTH_STATE_PATH, BASE_URL, HostSession  # noqa: E402
+from scrapers.airbnb_host import AUTH_STATE_PATH, BASE_URL  # noqa: E402
 
 POLL_SECONDS = 10
 TIMEOUT_SECONDS = 15 * 60
@@ -22,7 +22,7 @@ TIMEOUT_SECONDS = 15 * 60
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=False, channel="chrome")
         context = browser.new_context()
 
         # This tab is yours — the polling loop below never touches it.
@@ -33,22 +33,27 @@ def main():
         print("Complete any 2FA/OTP step if prompted.", flush=True)
         print(f"Waiting for login (checking every {POLL_SECONDS}s, up to {TIMEOUT_SECONDS // 60} min)...", flush=True)
 
-        # Separate tab, only used to poll login state — keeps the login tab undisturbed.
-        check_page = context.new_page()
-
-        session = HostSession()
+        # Poll login state with an in-page fetch() from the login tab itself:
+        # no second window (a headful context.new_page() opens a whole extra
+        # browser window), and it uses Chrome's own networking, so it works
+        # behind the corporate proxy (Playwright's context.request does not).
         waited = 0
         logged_in = False
         while waited < TIMEOUT_SECONDS:
             time.sleep(POLL_SECONDS)
             waited += POLL_SECONDS
+            if login_page.is_closed():
+                print("Login window was closed before login completed. Nothing saved — rerun this script.", flush=True)
+                browser.close()
+                return
             try:
-                is_logged_in = session._is_logged_in(check_page)
+                final_url = login_page.evaluate(
+                    "() => fetch('/hosting/listings', {credentials: 'include'}).then(r => r.url)"
+                )
+                is_logged_in = "/login" not in final_url
             except Exception as e:
-                # A transient failure here (slow load, cookie banner, etc.)
-                # must not crash the script — that would tear down the whole
-                # browser, including the user's still-open login tab.
-                print(f"...check failed ({waited}s elapsed): {e!r}", flush=True)
+                # Transient (e.g. the tab is mid-navigation) — keep waiting.
+                print(f"...check failed ({waited}s elapsed): {str(e).splitlines()[0][:120]}", flush=True)
                 continue
             if is_logged_in:
                 logged_in = True

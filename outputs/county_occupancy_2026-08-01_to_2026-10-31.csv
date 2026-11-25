@@ -1,0 +1,89 @@
+property,confirmation_code,guest_name,num_guests,party,status,checkin,checkout,total_nights,nights_in_quarter,host_payout
+Cascade,HM8P5Y9WAE,Natasha Yevchenko,10,"8 adults, 2 children, 1 infant",Past guest,2026-08-01,2026-08-09,8,8,3244.65
+Cascade,HMYXDW5QXZ,Eladio Mastache,8,8 adults,Past guest,2026-08-09,2026-08-11,2,2,732.61
+Cascade,HMA2CRCR4B,Zehra Khetani,8,"7 adults, 1 child",Past guest,2026-08-11,2026-08-13,2,2,691.61
+Cascade,HM9BCKEAKX,Alexander,10,10 adults,Canceled,2026-08-12,2026-08-16,4,0,0.00
+Cascade,HMKQX5FM44,Arina Livshitz,9,"7 adults, 2 children",Past guest,2026-08-13,2026-08-17,4,4,1924.48
+Cascade,HMC5NR2S5D,Colleen Flippin,7,7 adults,Past guest,2026-08-19,2026-08-23,4,4,1846.88
+Cascade,HMB9YX2JCK,Amy Motola,9,"2 adults, 7 children",Past guest,2026-08-23,2026-08-25,2,2,524.07
+Cascade,HMDCEBXD5X,Phat Douangdara,7,"5 adults, 2 children",Past guest,2026-08-26,2026-08-28,2,2,640.51
+Cascade,HMKTJFMRQT,Sean Kim,8,8 adults,Past guest,2026-08-28,2026-08-30,2,2,1212.50
+Cascade,HMHHHC5YBB,Rita FÖLdinÉ Fodor,10,"9 adults, 1 child",Past guest,2026-09-01,2026-09-04,3,3,902.10
+Cascade,HMNY8SHY5T,Cody Carlson,1,1 adult,Past guest,2026-09-04,2026-09-06,2,2,921.50
+Cascade,HM8YK3DRAD,憲承 劉,8,"6 adults, 2 children, 1 infant",Past guest,2026-09-06,2026-09-08,2,2,734.30
+Cascade,HMWB8E9QWT,Sarvenaz Oloomi,8,8 adults,Past guest,2026-09-08,2026-09-10,2,2,637.13
+Cascade,HMJWME4W5W,Karla Torres Moreno,10,"8 adults, 2 children",Past guest,2026-09-11,2026-09-13,2,2,960.30
+Cascade,HMAHW4CBF9,Don P Loreto,9,"7 adults, 2 children",Past guest,2026-09-13,2026-09-15,2,2,607.55
+Cascade,HM384FM82K,Michael Toy,4,"3 adults, 1 child",Past guest,2026-09-15,2026-09-18,3,3,686.14
+Cascade,HMEBDNJ2E9,⁨Margaret (Peggy)⁩ Springer,7,"6 adults, 1 child",Past guest,2026-09-18,2026-09-21,3,3,1173.70
+Cascade,HM5M3MSYER,Tahsilachay Ferrell,6,6 adults,Past guest,2026-09-22,2026-09-25,3,3,736.84
+Cascade,HMPQ283342,Tahsilachay,6,6 adults,Canceled,2026-09-22,2026-09-25,3,0,0.00
+Cascade,HMN242PHAX,Michael Fuentes,9,9 adults,Past guest,2026-09-25,2026-09-27,2,2,921.50
+Cascade,HMFNDR3KY8,Andriah Matau,6,"4 adults, 2 children, 1 infant",Past guest,2026-09-27,2026-09-28,1,1,297.44
+Cascade,HMM2EQREJE,Jessica Cazares,6,6 adults,Past guest,2026-09-29,2026-10-01,2,2,508.69
+Cascade,HM9ZDKNCWS,Johnson Vo,8,8 adults,Past guest,2026-10-01,2026-10-04,3,3,1212.50
+Cascade,HMA34WF4RR,예림 이,5,"3 adults, 2 children",Past guest,2026-10-04,2026-10-06,2,2,525.59
+Cascade,HMJSFNPEJR,Mel Stapper Wognum,4,4 adults,Past guest,2026-10-06,2026-10-07,1,1,278.43
+Cascade,HM5PZEQBW2,Samantha Del Mundo,5,"5 adults, 1 infant",Past guest,2026-10-07,2026-10-09,2,2,419.12
+Cascade,HM42Y8AE4H,Emily Ordonez,10,10 adults,Past guest,2026-10-09,2026-10-12,3,3,1290.10
+Cascade,HMFM3JM542,Brandy Aguirre,10,"8 adults, 2 children, 1 infant",Past guest,2026-10-12,2026-10-14,2,2,550.94
+Cascade,HMJEKM4AHH,Lesley,6,6 adults,Canceled,2026-10-14,2026-10-21,7,0,0.00
+Cascade,HMTEFY9TJM,Taylor Harlan,8,"6 adults, 2 children",Past guest,2026-10-14,2026-10-17,3,3,1101.03
+Cascade,HMWNAA3S8W,Vivian Lopez,10,"2 adults, 8 children",Past guest,2026-10-17,2026-10-18,1,1,564.46
+Cascade,HMPM3KEJRS,Kavin,5,5 adults,Canceled,2026-10-18,2026-10-20,2,0,0.00
+Cascade,HM9WBCQ2YB,Amritpal Singh,10,10 adults,Past guest,2026-10-21,2026-10-24,3,3,1259.89
+Cascade,HMEA5AXWQF,Lillian,1,1 adult,Canceled,2026-10-24,2026-10-25,1,0,0.00
+Cascade,HMJQB3BCKH,Michael,8,8 adults,Canceled,2026-10-24,2026-10-25,1,0,0.00
+Cascade,HMNQ4KAE49,Felipe Coronel,8,8 adults,Past guest,2026-10-24,2026-10-25,1,1,449.54
+Cascade,HMXQNYR4RN,Kim Lowers,5,"4 adults, 1 child",Past guest,2026-10-25,2026-10-28,3,3,669.24
+Cascade,HMDRPF5RXD,Sheila Mejia,10,"6 adults, 4 children",Review guest - Expires soon,2026-10-29,2026-10-31,2,2,804.44
+Cascade,HM4FKFHJFD,Elden Pamplona,8,8 adults,Review guest - Expires soon,2026-10-31,2026-11-01,1,1,540.80
+Dennison,HM5DK2JQPN,Phylicia Call,8,8 adults,Past guest,2026-07-30,2026-08-02,3,1,1581.10
+Dennison,HMZ9H95JCC,Tejas Shah,10,10 adults,Past guest,2026-08-02,2026-08-04,2,2,902.10
+Dennison,HMP53S2TTT,Jonathan Lichtman,5,"2 adults, 3 children",Past guest,2026-08-04,2026-08-06,2,2,614.31
+Dennison,HMCEH84HH2,Ty Smith,7,"5 adults, 2 children, 1 infant",Past guest,2026-08-06,2026-08-08,2,2,1047.60
+Dennison,HM3E45AS2J,Jose Zamora,7,"7 adults, 1 infant",Past guest,2026-08-08,2026-08-09,1,1,605.02
+Dennison,HM3QA48KS5,Ryan Howard,8,8 adults,Past guest,2026-08-09,2026-08-11,2,2,655.72
+Dennison,HM45RF5XEB,Christopher Warmerdam,6,6 adults,Past guest,2026-08-11,2026-08-14,3,3,885.56
+Dennison,HMY9W8KBHS,Kathrine Hamar,8,8 adults,Past guest,2026-08-14,2026-08-16,2,2,1212.50
+Dennison,HMCKZT2EKR,Ruthie Prusso,8,"4 adults, 4 children",Past guest,2026-08-16,2026-08-19,3,3,872.04
+Dennison,HMFRDBQDF4,Cedric,7,"5 adults, 2 children",Canceled,2026-08-19,2026-08-22,3,0,0.00
+Dennison,HMERM8NXPR,Sebastian Carrillo,7,7 adults,Past guest,2026-08-22,2026-08-23,1,1,567.84
+Dennison,HMNPDD3QSX,Kirry,1,1 adult,Canceled,2026-08-24,2026-08-25,1,0,0.00
+Dennison,HMX2Z89ST4,Kirry 潘,6,6 adults,Past guest,2026-08-24,2026-08-25,1,1,390.39
+Dennison,HMCET3T2DS,Daniel Le Gaspi,7,"4 adults, 3 children, 1 infant",Past guest,2026-08-25,2026-08-27,2,2,554.32
+Dennison,HMPC9YZEDB,Gabriel Alvarado,5,5 adults,Past guest,2026-08-27,2026-08-29,2,2,878.80
+Dennison,HM3YN3JHTN,Andrew Taylor,4,4 adults,Past guest,2026-08-29,2026-08-30,1,1,449.54
+Dennison,HMFT9WDSHM,Waqar,3,"3 adults, 1 infant",Canceled,2026-09-01,2026-09-02,1,0,0.00
+Dennison,HM9DNAHH9C,Diana,8,"7 adults, 1 child",Canceled,2026-09-02,2026-09-05,3,0,0.00
+Dennison,HMFBRXSBJ9,Kid Pitts,3,3 adults,Past guest,2026-09-04,2026-09-05,1,1,411.51
+Dennison,HM24TWXSH4,Patricia Matousek,6,6 adults,Past guest,2026-09-05,2026-09-07,2,2,921.50
+Dennison,HMTMH3JFR9,Jen Holmes,4,4 adults,Past guest,2026-09-07,2026-09-10,3,3,790.07
+Dennison,HMDEJETBBX,Scott,8,8 adults,Canceled,2026-09-10,2026-09-13,3,0,0.00
+Dennison,HMMENNSEEP,Tee Sanders,5,5 adults,Past guest,2026-09-10,2026-09-11,1,1,282.23
+Dennison,HMDQBREW3N,Tara Seper,7,7 adults,Past guest,2026-09-11,2026-09-13,2,2,1013.15
+Dennison,HMEBTWWZRM,Zach Bauer,4,4 adults,Past guest,2026-09-13,2026-09-14,1,1,282.23
+Dennison,HM5T2P8FEN,Hanna Gernega,3,3 adults,Past guest,2026-09-14,2026-09-17,3,3,871.19
+Dennison,HM2YTBRQAW,Diana,7,"5 adults, 2 children",Canceled,2026-09-17,2026-09-21,4,0,0.00
+Dennison,HMP23BND4Y,Rocio Carrillo,1,1 adult,Past guest,2026-09-18,2026-09-19,1,1,267.02
+Dennison,HMPDJNCQEB,Kuantse Wang,6,6 adults,Past guest,2026-09-19,2026-09-21,2,2,586.43
+Dennison,HMEPNYJMM3,Ezequiel Echeverria,6,6 adults,Past guest,2026-09-21,2026-09-23,2,2,419.12
+Dennison,HMBM2E3KKS,Luz Lopez,8,"7 adults, 1 child",Past guest,2026-09-23,2026-09-27,4,4,1367.70
+Dennison,HMCPFSR9W4,Gowtham L Venkateshwara,5,5 adults,Past guest,2026-09-27,2026-09-29,2,2,449.54
+Dennison,HMT8D2T2QY,Patrick Nguyen,7,"4 adults, 3 children, 3 infants",Past guest,2026-09-29,2026-10-03,4,4,1100.19
+Dennison,HMCAPWX8Q8,Aayush Dave,9,9 adults,Past guest,2026-10-03,2026-10-04,1,1,468.97
+Dennison,HM23EBXFMF,Jason Kirk,4,"2 adults, 2 children",Past guest,2026-10-05,2026-10-07,2,2,595.72
+Dennison,HMAHEERCKF,Donna,3,3 adults,Canceled,2026-10-07,2026-10-09,2,0,419.12
+Dennison,HM5KA4J4QE,Ana Pacheco,6,6 adults,Past guest,2026-10-08,2026-10-09,1,1,282.23
+Dennison,HMDEJ8Z28E,Jared,10,10 adults,Canceled,2026-10-09,2026-10-11,2,0,0.00
+Dennison,HMNNCHEZ94,Chantel Le,7,7 adults,Past guest,2026-10-09,2026-10-10,1,1,550.94
+Dennison,HMJEMJYE3X,Andrew De La Mare,7,"4 adults, 3 children",Past guest,2026-10-11,2026-10-16,5,5,1358.00
+Dennison,HMYAJJ4BB3,Fariba Rahimi,6,6 adults,Past guest,2026-10-16,2026-10-18,2,2,956.54
+Dennison,HMRQ3Z84C9,Gabriela Reyes,8,"6 adults, 2 children",Past guest,2026-10-18,2026-10-20,2,2,403.91
+Dennison,HMPCEE5KR2,Amritpal Singh,8,8 adults,Past guest,2026-10-21,2026-10-24,3,3,1178.77
+Dennison,HMYCDEKE4J,Kim J Attractions,9,"6 adults, 3 children",Past guest,2026-10-24,2026-10-25,1,1,592.34
+Dennison,HMHMKN3JZA,Evelyn Bustamante,6,6 adults,Past guest,2026-10-25,2026-10-26,1,1,251.81
+Dennison,HMJEEBNSZM,Iru Wang,5,5 adults,Awaiting guest review,2026-10-26,2026-10-29,3,3,571.22
+Dennison,HM8JPF283N,Christian Carlson,4,4 adults,Review guest - Expires soon,2026-10-29,2026-10-31,2,2,510.38
+Dennison,HM4EFRMHWF,Natoya Moralis,5,5 adults,Review guest - Expires soon,2026-10-31,2026-11-01,1,1,411.51
+Dennison,HM4YZX8WKW,Eddie,7,7 adults,Canceled,2026-10-31,2026-11-01,1,0,483.34

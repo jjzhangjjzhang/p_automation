@@ -73,6 +73,19 @@ def all_comp_snapshots(conn, since_date):
     ).fetchall()
 
 
+def last_known_own_prices(conn, listing_id, since_date) -> dict[str, float]:
+    """Most recent non-null scraped price per date, for carrying forward when
+    a newer calendar scrape has no price (e.g. the public availability API).
+    """
+    rows = conn.execute(
+        """SELECT date, price FROM own_calendar
+           WHERE listing_id = ? AND date >= ? AND price IS NOT NULL
+           ORDER BY scraped_at ASC""",
+        (listing_id, since_date),
+    ).fetchall()
+    return {r["date"]: r["price"] for r in rows}
+
+
 def latest_own_calendar(conn, listing_id, since_date):
     return conn.execute(
         """SELECT oc.* FROM own_calendar oc
