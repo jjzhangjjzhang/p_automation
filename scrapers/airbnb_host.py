@@ -37,6 +37,60 @@ def _dismiss_cookie_banner(page) -> None:
         " if (el) el.remove(); }"
     )
 
+# Candidate selectors for the day-panel controls, tried in order. Unlike the
+# price input (verified against a live session), these were NOT captured from a
+# live panel -- Airbnb's day panel varies by listing and build, so each control
+# is a list and a total miss raises with the panel text rather than silently
+# doing nothing. Re-derive with scripts/dump_host_pages.py if they all miss.
+_AVAILABILITY_TOGGLES = [
+    'input[data-testid="pna-availability-toggle"]',
+    '[data-testid="pna-availability"] input[type="checkbox"]',
+    '[data-testid="pna-availability"] [role="switch"]',
+    '[role="dialog"] input[type="checkbox"][name*="avail" i]',
+    '[role="dialog"] [role="switch"]',
+]
+
+_MIN_NIGHTS_INPUTS = [
+    'input[data-testid="PriceInput-minNights"]',
+    'input[data-testid="pna-min-nights"]',
+    '[data-testid="pna-min-nights"] input',
+    '[role="dialog"] input[name*="minNights" i]',
+    '[role="dialog"] input[aria-label*="minimum" i]',
+]
+
+
+def _first_present(page, selectors: list[str]):
+    """First selector in `selectors` that matches something, as a Locator."""
+    for selector in selectors:
+        loc = page.locator(selector).first
+        try:
+            loc.wait_for(state="attached", timeout=1500)
+        except Exception:
+            continue
+        if loc.count() > 0:
+            return loc
+    return None
+
+
+def _toggle_is_on(toggle) -> bool:
+    """True if a checkbox/switch reads as on. Checkboxes expose is_checked();
+    ARIA switches only have aria-checked, so fall back to that."""
+    try:
+        return toggle.is_checked()
+    except Exception:
+        return str(toggle.get_attribute("aria-checked")).lower() == "true"
+
+
+def _panel_text(page, panel) -> str:
+    """Panel text for error messages -- best effort, never raises."""
+    try:
+        if panel.count() > 0:
+            return panel.inner_text().replace("\n", " | ").strip()
+        return page.inner_text("body")[:300]
+    except Exception:
+        return "<unreadable>"
+
+
 _CALENDAR_COLLECT_JS = """() => {
     const cells = Array.from(document.querySelectorAll('button[data-date]'));
     return cells.map(b => {
@@ -174,12 +228,10 @@ class HostSession:
             )
         return results
 
-    def set_price(self, listing_id: str, date_str: str, price: float, dry_run: bool = False) -> dict:
-        """Sets the nightly price for one date on the host pricing calendar.
-
-        Returns {date, previous_price, new_price, applied}. With dry_run=True,
-        opens the edit panel and reads the current price but clicks Cancel
-        instead of Save — nothing is changed on Airbnb.
+    def _open_day_editor(self, listing_id: str, date_str: str):
+        """Opens the multicalendar and clicks one day cell, returning the page
+        with that day's edit panel open. Shared by set_price /
+        set_availability / set_min_nights.
         """
         page = self._context.new_page()
         page.goto(f"{BASE_URL}/multicalendar/{listing_id}", timeout=30000)
@@ -208,6 +260,22 @@ class HostSession:
             raise ValueError(f"Date {date_str} not found on calendar (out of loaded range?)")
         day_locator.scroll_into_view_if_needed()
         day_locator.click()
+        return page
+
+    def _finish_edit(self, page, dry_run: bool) -> None:
+        page.wait_for_timeout(300)
+        _dismiss_cookie_banner(page)  # can reappear and block Cancel/Save
+        page.get_by_role("button", name="Cancel" if dry_run else "Save").click()
+        page.wait_for_timeout(1500)
+
+    def set_price(self, listing_id: str, date_str: str, price: float, dry_run: bool = False) -> dict:
+        """Sets the nightly price for one date on the host pricing calendar.
+
+        Returns {date, previous_price, new_price, applied}. With dry_run=True,
+        opens the edit panel and reads the current price but clicks Cancel
+        instead of Save — nothing is changed on Airbnb.
+        """
+        page = self._open_day_editor(listing_id, date_str)
 
         price_box = page.locator('[data-testid="pna-price"]').first
         try:
@@ -237,14 +305,7 @@ class HostSession:
 
         price_input.click()
         price_input.fill(str(int(round(price))))
-        page.wait_for_timeout(300)
-        _dismiss_cookie_banner(page)  # can reappear and block Cancel/Save
-
-        if dry_run:
-            page.get_by_role("button", name="Cancel").click()
-        else:
-            page.get_by_role("button", name="Save").click()
-        page.wait_for_timeout(1500)
+        self._finish_edit(page, dry_run)
         page.close()
 
         return {
@@ -252,6 +313,124 @@ class HostSession:
             "previous_price": _parse_price(previous_price) if previous_price else None,
             "new_price": price,
             "applied": not dry_run,
+        }
+
+    def set_availability(self, listing_id: str, date_str: str, available: bool, dry_run: bool = False) -> dict:
+        """Opens or blocks one date on the host calendar.
+
+        Returns {date, previous_available, new_available, applied, changed}.
+        A date that is already in the requested state is left alone and
+        returns changed=False. Refuses to touch a date held by a guest
+        reservation -- that panel has no availability control, and this
+        raises rather than guessing.
+
+        NOTE: the selectors below are the fragile part. Airbnb reskins the
+        day panel regularly; each control is tried as a list of candidates and
+        a total miss raises with the panel's text so you can re-derive the
+        selector with scripts/dump_host_pages.py.
+        """
+        page = self._open_day_editor(listing_id, date_str)
+        panel = page.locator('[data-testid="pna-panel"], [role="dialog"]').first
+        try:
+            panel.wait_for(state="visible", timeout=8000)
+        except Exception:
+            pass
+
+        toggle = _first_present(page, _AVAILABILITY_TOGGLES)
+        if toggle is None:
+            text = _panel_text(page, panel)
+            page.close()
+            raise RuntimeError(
+                f"No availability control in the panel for {date_str} "
+                f"(guest-reserved, or the UI changed). Panel text: {text[:300]!r}"
+            )
+
+        previous_available = _toggle_is_on(toggle)
+        if previous_available == available:
+            page.get_by_role("button", name="Cancel").click()
+            page.wait_for_timeout(500)
+            page.close()
+            return {
+                "date": date_str,
+                "previous_available": previous_available,
+                "new_available": available,
+                "applied": False,
+                "changed": False,
+            }
+
+        toggle.click()
+        self._finish_edit(page, dry_run)
+        page.close()
+        return {
+            "date": date_str,
+            "previous_available": previous_available,
+            "new_available": available,
+            "applied": not dry_run,
+            "changed": True,
+        }
+
+    def set_min_nights(self, listing_id: str, date_str: str, min_nights: int, dry_run: bool = False) -> dict:
+        """Sets the minimum-stay length for stays checking in on one date.
+
+        Returns {date, previous_min_nights, new_min_nights, applied, changed}.
+        Same selector caveat as set_availability.
+        """
+        page = self._open_day_editor(listing_id, date_str)
+        panel = page.locator('[data-testid="pna-panel"], [role="dialog"]').first
+        try:
+            panel.wait_for(state="visible", timeout=8000)
+        except Exception:
+            pass
+
+        # The min-nights field often sits behind a collapsed "Stay length" /
+        # "Availability" section -- expand it if it's there before looking.
+        for name in ("Stay length", "Minimum stay", "Availability"):
+            section = page.get_by_role("button", name=name)
+            if section.count() > 0:
+                try:
+                    section.first.click()
+                    page.wait_for_timeout(400)
+                except Exception:
+                    pass
+                break
+
+        field = _first_present(page, _MIN_NIGHTS_INPUTS)
+        if field is None:
+            text = _panel_text(page, panel)
+            page.close()
+            raise RuntimeError(
+                f"No minimum-stay input in the panel for {date_str} "
+                f"(guest-reserved, or the UI changed). Panel text: {text[:300]!r}"
+            )
+
+        raw_previous = field.get_attribute("value")
+        try:
+            previous_min_nights = int(str(raw_previous).strip())
+        except (TypeError, ValueError):
+            previous_min_nights = None
+
+        if previous_min_nights == int(min_nights):
+            page.get_by_role("button", name="Cancel").click()
+            page.wait_for_timeout(500)
+            page.close()
+            return {
+                "date": date_str,
+                "previous_min_nights": previous_min_nights,
+                "new_min_nights": int(min_nights),
+                "applied": False,
+                "changed": False,
+            }
+
+        field.click()
+        field.fill(str(int(min_nights)))
+        self._finish_edit(page, dry_run)
+        page.close()
+        return {
+            "date": date_str,
+            "previous_min_nights": previous_min_nights,
+            "new_min_nights": int(min_nights),
+            "applied": not dry_run,
+            "changed": True,
         }
 
     def get_reservations(self, listing_id: str) -> list[dict]:

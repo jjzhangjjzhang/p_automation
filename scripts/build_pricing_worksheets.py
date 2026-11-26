@@ -4,6 +4,11 @@ competitor pricing (high/median/low/avail_n/lowest-priced comp) alongside
 your current price and the latest pipeline recommendation, with a blank
 new_price column you can fill in and apply with scripts/apply_prices_from_csv.py.
 
+The min_nights / stay_note columns are the Availability Agent's plan for that
+night, shown here for context only -- editing them has no effect. Minimum-stay
+and availability are pushed by scripts/apply_availability.py, not from this
+CSV.
+
 Assumes pipeline.py has already been run today (for own_calendar, comp
 pricing, and a recommendations file) — this script only reads from the DB
 and outputs/recommendations, it doesn't scrape anything itself.
@@ -24,6 +29,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from agents import availability_agent  # noqa: E402
 from storage import db  # noqa: E402
 
 CONFIG_PATH = Path(__file__).parent.parent / "config" / "listings.yaml"
@@ -31,8 +37,8 @@ RECOMMENDATIONS_DIR = Path(__file__).parent.parent / "outputs" / "recommendation
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
 
 HEADER = [
-    "listing_name", "listing_id", "date", "day", "avail_n", "high", "median", "low",
-    "current", "suggested", "delta", "note", "lowest_listing_url", "new_price",
+    "listing_name", "listing_id", "date", "day", "min_nights", "avail_n", "high", "median", "low",
+    "current", "suggested", "delta", "note", "stay_note", "lowest_listing_url", "new_price",
 ]
 
 
@@ -71,7 +77,9 @@ def _comp_stats_by_date(comp_snapshots: list[dict]) -> dict[str, dict]:
     return stats
 
 
-def build_rows(listing: dict, config: dict, conn, comp_stats: dict, recs: dict) -> list[list]:
+def build_rows(listing: dict, config: dict, conn, comp_stats: dict, recs: dict,
+               stay_plan: dict | None = None) -> list[list]:
+    stay_plan = stay_plan or {}
     guardrails = config["guardrails"]
     horizon = date.today() + timedelta(days=config["comps"]["price_lookup_days"])
     max_change_pct = guardrails["max_daily_change_pct"]
@@ -92,10 +100,16 @@ def build_rows(listing: dict, config: dict, conn, comp_stats: dict, recs: dict) 
             if abs(delta) >= current * (max_change_pct / 100) - 0.5:
                 note = f">{max_change_pct:.0f}%/day clamp"
 
+        plan = stay_plan.get(d, {})
+        stay_note = "; ".join(plan.get("reasons", []) + plan.get("flags", []))
+        if plan and not plan.get("available", True):
+            stay_note = f"BLOCKED by rule. {stay_note}".strip()
+
         rows.append([
             listing["name"], listing["id"], d, date.fromisoformat(d).strftime("%a"),
+            plan.get("min_nights"),
             stats.get("avail_n", 0), stats.get("high"), stats.get("median"), stats.get("low"),
-            current, suggested, delta, note, stats.get("lowest_listing_url"), None,
+            current, suggested, delta, note, stay_note, stats.get("lowest_listing_url"), None,
         ])
     return rows
 
@@ -146,7 +160,11 @@ def main():
 
     today_str = date.today().isoformat()
     for listing in config["listings"]:
-        rows = build_rows(listing, config, conn, comp_stats, recs)
+        stay_plan = {}
+        if listing.get("stay_rules"):
+            own_rows = [dict(r) for r in db.latest_own_calendar(conn, listing["id"], today_str)]
+            stay_plan = availability_agent.plan_listing(own_rows, listing["stay_rules"])
+        rows = build_rows(listing, config, conn, comp_stats, recs, stay_plan)
         slug = listing["name"].lower().replace(" ", "_")
         out_path = OUTPUT_DIR / f"pricing_worksheet_{today_str}_{slug}.csv"
         write_worksheet(out_path, rows)

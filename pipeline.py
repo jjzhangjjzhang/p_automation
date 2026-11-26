@@ -3,7 +3,8 @@ recommendations file. Intended to run once per day via cron.
 
     Booking Pace ─────┐
     Competitor Agent ──┼──> Revenue Optimizer ──> LLM Decision Agent
-    Calendar Agent ────┘
+    Calendar Agent ────┤
+    Availability Agent ┘
 
 Booking Pace runs first because the Competitor Agent now needs your own
 unbooked dates (from the own_calendar table) to know which nights to fetch
@@ -17,7 +18,14 @@ from datetime import date, datetime
 import yaml
 from dotenv import load_dotenv
 
-from agents import booking_pace_agent, calendar_agent, competitor_agent, decision_agent, revenue_optimizer
+from agents import (
+    availability_agent,
+    booking_pace_agent,
+    calendar_agent,
+    competitor_agent,
+    decision_agent,
+    revenue_optimizer,
+)
 from storage import db
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "listings.yaml")
@@ -43,6 +51,9 @@ def main():
 
     guardrails = config["guardrails"]
     since_date = date.today().isoformat()
+
+    print("Running Availability Agent...")
+    stay_plans_by_listing = availability_agent.run(config, conn)
 
     print("Running Calendar Agent + Revenue Optimizer...")
     shortlists_by_listing = {}
@@ -77,11 +88,21 @@ def main():
 
     for listing in config["listings"]:
         listing_id = listing["id"]
+        # Only the non-default minimums go into the signals blob: it's fed
+        # verbatim to the LLM, and 120 dates of "min_nights: 3" is prompt
+        # weight with no information in it.
+        stay_plan = stay_plans_by_listing.get(listing_id, {})
+        default_min = (listing.get("stay_rules") or {}).get("default_min_nights")
+        min_nights_overrides = {
+            d: p["min_nights"] for d, p in stay_plan.items() if p["min_nights"] != default_min
+        }
         signals_by_listing[listing_id] = {
             "pace_ratio": pace_by_listing.get(listing_id, 1.0),
             "gap_nights": sorted(gap_nights_by_listing.get(listing_id, [])),
             "at_risk_nights": at_risk_nights_by_listing.get(listing_id, {}),
             "shortlists": shortlists_by_listing.get(listing_id, {}),
+            "default_min_nights": default_min,
+            "min_nights_overrides": min_nights_overrides,
         }
 
     print("Running LLM Decision Agent...")

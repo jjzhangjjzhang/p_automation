@@ -27,6 +27,15 @@ def _comp_median_by_date(comp_snapshots: list[dict]) -> dict[str, float]:
     return {d: statistics.median(prices) for d, prices in by_date.items() if prices}
 
 
+def _comp_min_by_date(comp_snapshots: list[dict]) -> dict[str, float]:
+    by_date: dict[str, list[float]] = {}
+    for row in comp_snapshots:
+        if row.get("price") is None or not row.get("available"):
+            continue
+        by_date.setdefault(row["date"], []).append(row["price"])
+    return {d: min(prices) for d, prices in by_date.items() if prices}
+
+
 def _candidate_grid(current_price: float, guardrails: dict) -> list[float]:
     max_change = guardrails["max_daily_change_pct"] / 100
     steps = [-max_change, -max_change * 0.66, -max_change * 0.33, 0, max_change * 0.33, max_change * 0.66, max_change]
@@ -38,13 +47,11 @@ def _candidate_grid(current_price: float, guardrails: dict) -> list[float]:
 
 
 def _booking_probability(
-    candidate_price: float, comp_median: float, pace_ratio: float, is_gap_night: bool, at_risk_weight: float = 0.0
+    candidate_price: float, comp_baseline: float, pace_ratio: float, is_gap_night: bool, is_recent: bool, at_risk_weight: float = 0.0
 ) -> float:
-    """Heuristic, not a fitted model: higher than comp median -> lower probability;
-    behind pace, a gap night, or at risk of becoming one -> more sensitive to
-    price (more urgency to fill).
+    """Heuristic, not a fitted model. For recent dates, comparing against the minimum comp rate with a steeper curve maximizes probability. For dates further out, comparing against the median is used.
     """
-    price_delta_pct = (candidate_price - comp_median) / comp_median if comp_median else 0
+    price_delta_pct = (candidate_price - comp_baseline) / comp_baseline if comp_baseline else 0
     urgency = 1.0
     if pace_ratio < 0.9:
         urgency += 0.5
@@ -52,7 +59,9 @@ def _booking_probability(
         urgency += 0.5
     else:
         urgency += 0.5 * at_risk_weight
-    return _sigmoid(-3 * urgency * price_delta_pct)
+    
+    curve_multiplier = 20 if is_recent else 3
+    return _sigmoid(-curve_multiplier * urgency * price_delta_pct)
 
 
 def score_listing(
@@ -65,6 +74,7 @@ def score_listing(
     at_risk_nights: dict[str, float] | None = None,
 ) -> dict[str, list[dict]]:
     """Returns {date: [ {price, expected_prob, expected_revenue}, ... top 3 ] }."""
+    comp_min = _comp_min_by_date(comp_snapshots)
     comp_median = _comp_median_by_date(comp_snapshots)
     window_end = date.today() + timedelta(days=guardrails["pricing_window_days"])
     at_risk_nights = at_risk_nights or {}
@@ -75,13 +85,15 @@ def score_listing(
         if not d or row.get("booked") or date.fromisoformat(d) > window_end:
             continue
         current_price = row.get("price") or guardrails["price_floor"]
-        median = comp_median.get(d, current_price)
+        is_recent = (date.fromisoformat(d) - date.today()).days <= 14
+        
+        comp_baseline = comp_min.get(d, current_price) if is_recent else comp_median.get(d, current_price)
         is_gap = d in gap_nights
         risk_weight = at_risk_nights.get(d, 0.0)
 
         scored = []
         for candidate in _candidate_grid(current_price, guardrails):
-            prob = _booking_probability(candidate, median, pace_ratio, is_gap, risk_weight)
+            prob = _booking_probability(candidate, comp_baseline, pace_ratio, is_gap, is_recent, risk_weight)
             scored.append(
                 {
                     "price": candidate,
@@ -89,7 +101,11 @@ def score_listing(
                     "expected_revenue": round(candidate * prob, 2),
                 }
             )
-        scored.sort(key=lambda s: s["expected_revenue"], reverse=True)
+        
+        if is_recent:
+            scored.sort(key=lambda s: s["expected_prob"], reverse=True)
+        else:
+            scored.sort(key=lambda s: s["expected_revenue"], reverse=True)
         shortlists[d] = scored[:3]
 
     return shortlists

@@ -99,3 +99,62 @@ def latest_own_calendar(conn, listing_id, since_date):
            ORDER BY oc.date ASC""",
         (listing_id, since_date, listing_id),
     ).fetchall()
+
+
+def insert_availability_action(conn, applied_at, listing_id, date, action, detail, dry_run):
+    conn.execute(
+        """INSERT INTO availability_actions
+           (applied_at, listing_id, date, action, detail, dry_run)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (applied_at, listing_id, date, action, detail, 1 if dry_run else 0),
+    )
+
+
+def agent_blocked_dates(conn, listing_id, since_date) -> set[str]:
+    """Dates the Availability Agent currently holds blocked: those whose most
+    recent real (non-dry-run) block/open action was a 'block'.
+
+    Used to tell an agent-blocked night apart from a guest reservation, since
+    the host calendar scrape reports both as `booked`.
+    """
+    rows = conn.execute(
+        """SELECT aa.date, aa.action FROM availability_actions aa
+           JOIN (
+               SELECT date, MAX(applied_at) AS max_applied_at
+               FROM availability_actions
+               WHERE listing_id = ? AND date >= ? AND dry_run = 0
+                 AND action IN ('block', 'open')
+               GROUP BY date
+           ) latest ON aa.date = latest.date AND aa.applied_at = latest.max_applied_at
+           WHERE aa.listing_id = ? AND aa.dry_run = 0
+             AND aa.action IN ('block', 'open')""",
+        (listing_id, since_date, listing_id),
+    ).fetchall()
+    return {r["date"] for r in rows if r["action"] == "block"}
+
+
+def last_applied_min_nights(conn, listing_id, since_date) -> dict[str, int]:
+    """{date: min_nights} the agent last really applied, so a run can skip
+    dates already at their target instead of reopening the multicalendar for
+    every night in the horizon (each visit is a full page load).
+
+    For 'min_nights' rows, `detail` holds the applied value as a plain int.
+    """
+    rows = conn.execute(
+        """SELECT aa.date, aa.detail FROM availability_actions aa
+           JOIN (
+               SELECT date, MAX(applied_at) AS max_applied_at
+               FROM availability_actions
+               WHERE listing_id = ? AND date >= ? AND dry_run = 0 AND action = 'min_nights'
+               GROUP BY date
+           ) latest ON aa.date = latest.date AND aa.applied_at = latest.max_applied_at
+           WHERE aa.listing_id = ? AND aa.dry_run = 0 AND aa.action = 'min_nights'""",
+        (listing_id, since_date, listing_id),
+    ).fetchall()
+    out = {}
+    for r in rows:
+        try:
+            out[r["date"]] = int(str(r["detail"]).strip())
+        except (TypeError, ValueError):
+            continue  # older/malformed row: treat as unknown, re-apply
+    return out

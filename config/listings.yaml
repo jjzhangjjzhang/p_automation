@@ -1,8 +1,61 @@
+# Minimum-stay / availability policy, consumed by agents/availability_agent.py.
+# Every entry below is a RELAXATION of default_min_nights: a date's effective
+# minimum is the smallest value any matching rule allows.
+#
+# Cascade and Dennison share everything except how they treat a single orphan
+# night, so the shared part is a YAML anchor merged into each listing with `<<`
+# and the one_night_gap rule is picked per listing. Merging is shallow, so
+# gap_rules has to be written out per listing rather than merged.
+stay_rules_presets:
+  base: &stay_rules_base
+    default_min_nights: 3
+    near_term:
+      days: 14 # the next two weeks book late; take 2-night stays
+      min_nights: 2
+    weekday_min_nights:
+      friday: 2 # Friday check-in may be a 2-night weekend
+
+  # --- one_night_gap variants: what to do with a single unbooked night that
+  # --- has a booking on BOTH sides.
+  #
+  # Cascade: bookable only in the evening/overnight window. Airbnb has no
+  # hourly availability, so the window is enforced by RE-RUNNING
+  # scripts/apply_availability.py on a schedule -- at open_at it opens the
+  # night, at close_at it blocks it again. Cron BOTH times or the night stays
+  # stuck in whichever state it was last left in.
+  one_night_turnover_window: &one_night_turnover_window
+    action: turnover_toggle
+    min_nights: 1
+    open_at: "17:00"
+    close_at: "07:00" # next morning; the window wraps midnight
+    # Weekdays on which the clock window is SUSPENDED and every orphan night
+    # stays bookable all day. Matched against the day the agent RUNS, not
+    # against the orphan night's own date -- so on a Saturday or Sunday run,
+    # all orphan nights are open regardless of which weekday they fall on.
+    open_all_day_on: [saturday, sunday]
+    note: "Single-night turnover: bookable 5pm-7am Mon-Fri, all day Sat/Sun."
+
+  # Dennison: a single-night gap is simply bookable, no clock schedule.
+  one_night_always_open: &one_night_always_open
+    action: open
+    min_nights: 1
+    note: "Single-night gap between bookings: 1-night stay allowed."
+
 listings:
   - id: "1366459487284926886"
     name: "Cascade"
+    stay_rules:
+      <<: *stay_rules_base
+      gap_rules:
+        two_night_gap_min_nights: 2
+        one_night_gap: *one_night_turnover_window
   - id: "1571837966127216610"
     name: "Dennison"
+    stay_rules:
+      <<: *stay_rules_base
+      gap_rules:
+        two_night_gap_min_nights: 2
+        one_night_gap: *one_night_always_open
 
 comps:
   # Not currently used for pricing — Airbnb stopped returning nightly prices
@@ -23,7 +76,7 @@ comps:
     bathrooms_min: 2
     adults: 2
     children: 2
-    min_nights: 2 # San Diego STR regulations require a 2-night minimum stay
+    min_nights: 1
     property_type: "Entire home"
     max_results: 50
     max_distance_miles: 10
